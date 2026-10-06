@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Centre de Services Agréé · Service Report Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ============================================================
+   RESET & TOKENS
+   ============================================================ */
+:root{
+  --bg:#f5f5f7;
+  --surface:#ffffff;
+  --surface-2:#fbfbfd;
+  --border:#e5e5ea;
+  --border-strong:#d2d2d7;
+  --text:#1d1d1f;
+  --text-muted:#6e6e73;
+  --text-dim:#86868b;
+  --accent:#0071e3;
+  --accent-hover:#0077ed;
+  --accent-soft:#eaf3ff;
+  --danger:#ff3b30;
+  --danger-soft:#ffeceb;
+  --success:#34c759;
+  --radius:16px;
+  --radius-sm:10px;
+  --radius-xs:8px;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04), 0 2px 8px rgba(0,0,0,.04);
+  --shadow:0 1px 3px rgba(0,0,0,.04), 0 10px 28px rgba(0,0,0,.06);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.10);
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg); color:var(--text);
+  line-height:1.5; -webkit-font-smoothing:antialiased;
+  min-height:100vh; font-size:15px;
+}
+img{max-width:100%;display:block}
+button{font-family:inherit}
+input,select,textarea{font-family:inherit}
+.req{color:var(--danger);font-weight:700;margin-left:1px}
+
+/* ============================================================
+   VIEWS
+   ============================================================ */
+.view{display:none;min-height:100vh;animation:fade .4s var(--ease)}
+.view.is-active{display:block}
+#view-login.is-active{display:flex;align-items:center;justify-content:center;padding:24px}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+#view-login{
+  position:relative; overflow:hidden;
+  background:
+    radial-gradient(1200px 700px at 10% 0%, #e8f1ff 0%, transparent 55%),
+    radial-gradient(1000px 700px at 100% 100%, #f0eaff 0%, transparent 55%),
+    var(--bg);
+}
+.login-orb{
+  position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;pointer-events:none;
+  animation:float 14s ease-in-out infinite alternate;
+}
+.login-orb--a{width:420px;height:420px;background:#b9d6ff;top:-120px;left:-120px}
+.login-orb--b{width:460px;height:460px;background:#e0d3ff;bottom:-160px;right:-140px;animation-delay:-7s}
+@keyframes float{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(30px,-20px,0) scale(1.08)}}
+
+.login-card{
+  position:relative;z-index:1;width:100%;max-width:420px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:22px;padding:38px 32px 28px;
+  box-shadow:var(--shadow-lg);
+  animation:rise .7s var(--ease) both;
+}
+@keyframes rise{from{opacity:0;transform:translateY(18px) scale(.98)}to{opacity:1;transform:none}}
+
+.brand{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:18px}
+.brand-logo{max-height:64px;max-width:200px;width:auto;object-fit:contain}
+.brand-logo.is-missing{display:none}
+.brand-fallback{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)}
+.brand-logo:not(.is-missing)+.brand-fallback{display:none}
+
+.login-title{margin:6px 0 4px;font-size:22px;font-weight:700;text-align:center;letter-spacing:-.02em}
+.login-sub{margin:0 0 22px;font-size:13px;color:var(--text-muted);text-align:center}
+.login-foot{margin:20px 0 0;text-align:center;font-size:11px;color:var(--text-dim)}
+
+/* ============================================================
+   FIELDS
+   ============================================================ */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field>span{font-size:11.5px;font-weight:600;color:var(--text-muted);letter-spacing:.01em}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 12px;font-size:14px;color:var(--text);
+  background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:var(--radius-xs);outline:none;
+  transition:border-color .18s var(--ease),box-shadow .18s var(--ease),background .18s var(--ease);
+}
+.field input:hover,.field select:hover,.field textarea:hover{border-color:#b8b8bd}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--accent);box-shadow:0 0 0 4px rgba(0,113,227,.14);background:#fff;
+}
+.field textarea{resize:vertical;min-height:70px;line-height:1.45;font-family:inherit}
+.field input.is-error,.field select.is-error,.field textarea.is-error{
+  border-color:var(--danger);box-shadow:0 0 0 4px rgba(255,59,48,.14);background:var(--danger-soft);
+}
+.field select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%236e6e73' d='M6 8 0 0h12z'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:10px 18px;font-size:14px;font-weight:600;border-radius:980px;
+  border:1px solid transparent;cursor:pointer;
+  transition:transform .12s var(--ease),background .18s var(--ease),box-shadow .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease);
+  user-select:none;white-space:nowrap;
+}
+.btn:active{transform:scale(.97)}
+.btn--primary{background:var(--accent);color:#fff;box-shadow:0 2px 10px rgba(0,113,227,.28)}
+.btn--primary:hover{background:var(--accent-hover);box-shadow:0 4px 16px rgba(0,113,227,.35)}
+.btn--ghost{background:transparent;color:var(--text);border-color:var(--border-strong)}
+.btn--ghost:hover{background:#f0f0f2}
+.btn--block{width:100%}
+.btn--sm{padding:7px 14px;font-size:13px}
+
+/* ============================================================
+   FORM ERRORS
+   ============================================================ */
+.form-error{min-height:0;color:var(--danger);font-size:13px;font-weight:500;text-align:center;margin:-4px 0 10px;transition:min-height .2s var(--ease)}
+.form-error.show{min-height:20px}
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(255,255,255,.82);
+  backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.topbar__inner{
+  max-width:1180px;margin:0 auto;padding:12px 22px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.topbar__brand{display:flex;align-items:center;gap:12px;min-width:0}
+.topbar__logo{height:34px;width:auto;object-fit:contain}
+.topbar__logo.is-missing{display:none}
+.topbar__txt{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+.topbar__txt strong{font-size:13.5px;font-weight:700;letter-spacing:-.01em}
+.topbar__txt span{font-size:11px;color:var(--text-dim)}
+.topbar__actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.chips{
+  max-width:1180px;margin:0 auto;padding:0 22px 10px;
+  display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;padding:5px 12px;border-radius:980px;background:#f0f0f2;
+  color:var(--text-muted);font-size:12px;font-weight:600;text-decoration:none;
+  transition:background .16s var(--ease),color .16s var(--ease);
+}
+.chip:hover{background:var(--accent-soft);color:var(--accent)}
+
+/* ============================================================
+   PAGE / CARDS
+   ============================================================ */
+.page{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:24px 24px 20px;margin-bottom:20px;
+  box-shadow:var(--shadow-sm);
+  animation:rise .5s var(--ease) both;
+  scroll-margin-top:130px;
+}
+.card__head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.card__num{
+  flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;border-radius:10px;background:var(--accent-soft);
+  color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.02em;
+}
+.card__head h2{margin:0;font-size:16.5px;font-weight:700;letter-spacing:-.01em}
+.card__head p{margin:2px 0 0;font-size:12.5px;color:var(--text-muted)}
+.card__head-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+.grid{display:grid;gap:14px 16px}
+.grid--4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.stack{display:flex;flex-direction:column;gap:2px}
+.grid-span-2{grid-column:span 2}
+
+.hint{font-size:12px;color:var(--text-dim);margin:8px 0 0}
+#partsEmptyHint{text-align:center;padding:12px 0 0}
+
+/* ============================================================
+   PARTS TABLE
+   ============================================================ */
+.table-scroll{overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border)}
+.parts-table{width:100%;border-collapse:collapse;min-width:820px;font-size:13px;background:#fff}
+.parts-table thead th{
+  text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-muted);
+  padding:10px 10px;background:#fafafc;border-bottom:1px solid var(--border);
+}
+.parts-table td{padding:6px 6px;border-bottom:1px solid #f0f0f2;vertical-align:middle}
+.parts-table tbody tr:last-child td{border-bottom:none}
+.parts-table input{
+  width:100%;padding:8px 9px;font-size:12.5px;border:1px solid transparent;
+  border-radius:6px;background:#fafafc;outline:none;transition:all .15s var(--ease);
+}
+.parts-table input:hover{background:#f2f2f5}
+.parts-table input:focus{background:#fff;border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,113,227,.14)}
+.col-action{width:42px}
+.btn-remove{
+  width:28px;height:28px;border-radius:8px;border:none;cursor:pointer;
+  background:transparent;color:var(--text-dim);font-size:18px;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background .16s var(--ease),color .16s var(--ease);
+}
+.btn-remove:hover{background:var(--danger-soft);color:var(--danger)}
+
+/* ============================================================
+   REVIEW
+   ============================================================ */
+.card--review{background:linear-gradient(180deg,#fff 0%,#fbfbfd 100%)}
+.review-list{list-style:none;padding:0;margin:0 0 22px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px}
+.review-list li{
+  display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);
+  padding:8px 12px;background:#fafafc;border-radius:10px;border:1px solid var(--border);
+}
+.review-list li .rk{color:var(--text);font-weight:600;min-width:120px}
+.review-list li .rv{color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.review-list li .ok{color:var(--success);font-weight:700;margin-left:auto}
+.review-list li.miss{border-color:#ffd9d6;background:var(--danger-soft)}
+.review-list li.miss .rv{color:var(--danger)}
+.review-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+
+.page-foot{text-align:center;color:var(--text-dim);font-size:12px;padding:20px 0 0}
+
+/* ============================================================
+   PREVIEW
+   ============================================================ */
+.preview-page{max-width:1180px;margin:0 auto;padding:22px}
+.preview-frame{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;height:calc(100vh - 180px);min-height:520px;
+}
+#pdfFrame{width:100%;height:100%;border:0;display:block;background:#525659}
+.preview-hint{text-align:center;padding:12px 0 0}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:900px){
+  .grid--4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid--3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .review-list{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .topbar__inner{padding:10px 14px}
+  .chips{padding:0 14px 8px}
+  .page{padding:18px 14px 50px}
+  .card{padding:18px 16px 16px;border-radius:14px}
+  .grid--4,.grid--3{grid-template-columns:1fr}
+  .grid-span-2{grid-column:auto}
+  .topbar__txt span{display:none}
+  .topbar__actions{gap:6px}
+  .btn--sm{padding:6px 11px;font-size:12px}
+  .login-card{padding:28px 20px 22px;border-radius:18px}
+  .card__head-actions{width:100%;margin-left:0}
+  .card__head-actions .btn{flex:1}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     VIEW 1 — LOGIN
+     ============================================================ -->
+<section id="view-login" class="view is-active">
+  <div class="login-orb login-orb--a"></div>
+  <div class="login-orb login-orb--b"></div>
+
+  <div class="login-card">
+    <div class="brand">
+      <img src="assets/Logo-centre-de-service-agrée.png" alt="Centre de Services Agréé"
+           class="brand-logo" id="loginLogo"
+           onerror="this.classList.add('is-missing')" />
+      <div class="brand-fallback">Centre de Services Agréé</div>
+    </div>
+
+    <h1 class="login-title">Service Report Generator</h1>
+    <p class="login-sub">Internal tool — authorised personnel only.</p>
+
+    <form id="loginForm" novalidate autocomplete="on">
+      <label class="field">
+        <span>Email</span>
+        <input type="email" id="loginEmail" autocomplete="username"
+               placeholder="name@company.com" spellcheck="false" />
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input type="password" id="loginPassword" autocomplete="current-password"
+               placeholder="••••••••" />
+      </label>
+
+      <div class="form-error" id="loginError" role="alert" aria-live="polite"></div>
+
+      <button type="submit" class="btn btn--primary btn--block" id="loginBtn">
+        Sign In
+      </button>
+    </form>
+
+    <p class="login-foot">© <span id="year"></span> Centre de Services Agréé</p>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     VIEW 2 — FORM
+     ============================================================ -->
+<section id="view-form" class="view">
+  <header class="topbar">
+    <div class="topbar__inner">
+      <div class="topbar__brand">
+        <img src="assets/logo-centre-service-agree.png" alt="Centre de Services Agréé"
+             class="topbar__logo" onerror="this.classList.add('is-missing')" />
+        <div class="topbar__txt">
+          <strong>Centre de Services Agréé</strong>
+          <span>Service Report</span>
+        </div>
+      </div>
+
+      <div class="topbar__actions">
+        <label class="btn btn--ghost btn--sm" title="Replace the left header logo used in the PDF">
+          Logo L
+          <input type="file" id="logoInput" accept="image/png,image/jpeg" hidden />
+        </label>
+        <label class="btn btn--ghost btn--sm" title="Replace the top-right header logo used in the PDF">
+          Logo R
+          <input type="file" id="logoRightInput" accept="image/png,image/jpeg" hidden />
+        </label>
+        <button class="btn btn--ghost btn--sm" id="btnClearTop" type="button">Clear</button>
+        <button class="btn btn--primary btn--sm" id="btnPreviewTop" type="button">Preview PDF</button>
+        <button class="btn btn--ghost btn--sm" id="btnLogout" type="button">Log out</button>
+      </div>
+    </div>
+
+    <nav class="chips" aria-label="Sections">
+      <a class="chip" href="#sec-01">01 · Job</a>
+      <a class="chip" href="#sec-02">02 · Diagnosis</a>
+      <a class="chip" href="#sec-03">03 · Repair</a>
+      <a class="chip" href="#sec-04">04 · Parts</a>
+      <a class="chip" href="#sec-05">05 · IMEI</a>
+      <a class="chip" href="#sec-06">06 · Customer</a>
+      <a class="chip" href="#sec-07">07 · Review</a>
+    </nav>
+  </header>
+
+  <main class="page">
+
+    <!-- 01 -->
+    <section class="card" id="sec-01">
+      <div class="card__head">
+        <span class="card__num">01</span>
+        <div>
+          <h2>Job Information</h2>
+          <p>Identification of the repair job.</p>
+        </div>
+      </div>
+
+      <div class="grid grid--4">
+        <label class="field">
+          <span>Job No. <b class="req">*</b></span>
+          <input type="text" id="jobNumber" placeholder="26-31181" />
+        </label>
+        <label class="field">
+          <span>Received Date <b class="req">*</b></span>
+          <input type="date" id="receivedDate" />
+        </label>
+        <label class="field">
+          <span>Diagnosed Date <b class="req">*</b></span>
+          <input type="date" id="diagnosedDate" />
+        </label>
+        <label class="field">
+          <span>Repaired Date</span>
+          <input type="date" id="repairedDate" />
+        </label>
+        <label class="field">
+          <span>Apple Repair #</span>
+          <input type="text" id="appleRepairNumber" placeholder="—" />
+        </label>
+        <label class="field">
+          <span>Repair Type</span>
+          <select id="repairType">
+            <option value="">— Select —</option>
+            <option>Carry In</option>
+            <option>Mail In</option>
+            <option>On-Site</option>
+            <option>Walk-In</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Customer Contacted Date</span>
+          <input type="date" id="customerContactedDate" />
+        </label>
+      </div>
+    </section>
+
+    <!-- 02 -->
+    <section class="card" id="sec-02">
+      <div class="card__head">
+        <span class="card__num">02</span>
+        <div>
+          <h2>Diagnosis</h2>
+          <p>Technical findings before and after the repair.</p>
+        </div>
+      </div>
+
+      <div class="stack">
+        <label class="field">
+          <span>Diagnosed</span>
+          <textarea id="diagnosed" rows="3" placeholder="Describe the initial diagnosis…"></textarea>
+        </label>
+        <label class="field">
+          <span>Summary</span>
+          <textarea id="summary" rows="3" placeholder="Short summary of the intervention…"></textarea>
+        </label>
+        <label class="field">
+          <span>Post Repair Diagnosed</span>
+          <textarea id="postRepairDiagnosed" rows="3"
+            placeholder="Device passes all diagnostic post repair tests"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="card" id="sec-03">
+      <div class="card__head">
+        <span class="card__num">03</span>
+        <div>
+          <h2>Repair Information</h2>
+          <p>Service note, technician, delivery and billing details.</p>
+        </div>
+      </div>
+
+      <div class="stack">
+        <label class="field">
+          <span>Service Note</span>
+          <textarea id="serviceNote" rows="3" placeholder="Internal service note…"></textarea>
+        </label>
+
+        <div class="grid grid--4">
+          <label class="field">
+            <span>Technician Name <b class="req">*</b></span>
+            <input type="text" id="technicianName" placeholder="Rabih Andulxafur" />
+          </label>
+          <label class="field">
+            <span>Tech ID</span>
+            <input type="text" id="techId" placeholder="—" />
+          </label>
+          <label class="field">
+            <span>Delivery Date</span>
+            <input type="date" id="deliveryDate" />
+          </label>
+          <label class="field">
+            <span>Delivery Time</span>
+            <input type="time" id="deliveryTime" />
+          </label>
+
+          <label class="field">
+            <span>Dealer / Company</span>
+            <input type="text" id="dealerCompany" placeholder="iCenter" />
+          </label>
+          <label class="field">
+            <span>Direct Customer</span>
+            <input type="text" id="directCustomer" placeholder="Yes / No / Name" />
+          </label>
+          <label class="field">
+            <span>Client <b class="req">*</b></span>
+            <input type="text" id="client" placeholder="Rabih andulxafur" />
+          </label>
+          <label class="field">
+            <span>Price</span>
+            <input type="number" id="price" step="0.01" min="0" placeholder="0.00" />
+          </label>
+          <label class="field">
+            <span>Currency</span>
+            <input type="text" id="currency" placeholder="USD" value="USD" />
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="card" id="sec-04">
+      <div class="card__head">
+        <span class="card__num">04</span>
+        <div>
+          <h2>Parts &amp; Serial Numbers</h2>
+          <p>List every part used for this repair.</p>
+        </div>
+        <div class="card__head-actions">
+          <button class="btn btn--ghost btn--sm" type="button" id="btnLoadExample">Load example</button>
+          <button class="btn btn--primary btn--sm" type="button" id="btnAddPart">+ Add Part</button>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="parts-table">
+          <thead>
+            <tr>
+              <th>Part #</th>
+              <th>Description</th>
+              <th>Warranty</th>
+              <th>Old Serial Number</th>
+              <th>New Serial Number</th>
+              <th class="col-action" aria-label="Actions"></th>
+            </tr>
+          </thead>
+          <tbody id="partsBody"></tbody>
+        </table>
+      </div>
+      <p class="hint" id="partsEmptyHint">No parts yet — click “+ Add Part”.</p>
+    </section>
+
+    <!-- 05 -->
+    <section class="card" id="sec-05">
+      <div class="card__head">
+        <span class="card__num">05</span>
+        <div>
+          <h2>IMEI</h2>
+          <p>Old and new device identifiers.</p>
+        </div>
+      </div>
+
+      <div class="grid grid--4">
+        <label class="field"><span>IMEI Old</span><input type="text" id="imeiOld" placeholder="—" /></label>
+        <label class="field"><span>IMEI New</span><input type="text" id="imeiNew" placeholder="—" /></label>
+        <label class="field"><span>IMEI Old 2</span><input type="text" id="imeiOld2" placeholder="—" /></label>
+        <label class="field"><span>IMEI New 2</span><input type="text" id="imeiNew2" placeholder="—" /></label>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="card" id="sec-06">
+      <div class="card__head">
+        <span class="card__num">06</span>
+        <div>
+          <h2>Customer Information</h2>
+          <p>Contact details printed in the report footer.</p>
+        </div>
+      </div>
+
+      <div class="grid grid--3">
+        <label class="field"><span>Customer Name</span><input type="text" id="customerName" placeholder="Rabih andulxafur" /></label>
+        <label class="field"><span>Mobile</span><input type="text" id="mobile" placeholder="+9647502347717" /></label>
+        <label class="field"><span>Email</span><input type="text" id="email" placeholder="erbil.service@nciraq.com" /></label>
+        <label class="field grid-span-2"><span>Address</span><input type="text" id="address" placeholder="Erbil - Ainkawa road - bakhtyari" /></label>
+        <label class="field"><span>Website</span><input type="text" id="website" placeholder="icenter-iq.com" /></label>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="card card--review" id="sec-07">
+      <div class="card__head">
+        <span class="card__num">07</span>
+        <div>
+          <h2>Final Review</h2>
+          <p>Check the required fields, then generate the PDF.</p>
+        </div>
+      </div>
+
+      <ul class="review-list" id="reviewList"></ul>
+
+      <div class="review-actions">
+        <button class="btn btn--ghost" type="button" id="btnClearBottom">Clear Form</button>
+        <button class="btn btn--primary" type="button" id="btnPreviewBottom">Preview PDF →</button>
+      </div>
+    </section>
+
+    <footer class="page-foot">
+      Centre de Services Agréé · Service Report Generator — all data stays in your browser.
+    </footer>
+  </main>
+</section>
+
+
+<!-- ============================================================
+     VIEW 3 — PREVIEW
+     ============================================================ -->
+<section id="view-preview" class="view">
+  <header class="topbar">
+    <div class="topbar__inner">
+      <div class="topbar__brand">
+        <img src="assets/logo-centre-service-agree.png" alt="Centre de Services Agréé"
+             class="topbar__logo" onerror="this.classList.add('is-missing')" />
+        <div class="topbar__txt">
+          <strong>PDF Preview</strong>
+          <span id="previewFileName">Service_Report.pdf</span>
+        </div>
+      </div>
+
+      <div class="topbar__actions">
+        <button class="btn btn--ghost btn--sm" id="btnBack" type="button">← Back to Form</button>
+        <button class="btn btn--ghost btn--sm" id="btnRegenerate" type="button">Regenerate</button>
+        <button class="btn btn--primary btn--sm" id="btnDownload" type="button">Download PDF</button>
+        <button class="btn btn--ghost btn--sm" id="btnClearPreview" type="button">Clear Form</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="preview-page">
+    <div class="preview-frame">
+      <iframe id="pdfFrame" title="Service report preview"></iframe>
+    </div>
+    <p class="hint preview-hint">
+      If the preview does not display, use <strong>Download PDF</strong> to open the file directly.
+    </p>
+  </main>
+</section>
+
+
+<script>
+/* ================================================================
+   CENTRE DE SERVICES AGRÉÉ — SERVICE REPORT GENERATOR
+   Single-file, client-side only.
+   ================================================================ */
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------
+     0. CONFIG — CHANGE THESE CREDENTIALS
+     ------------------------------------------------------------ */
+  const VALID_EMAIL    = "sav@istore.com";   // ← change me
+  const VALID_PASSWORD = "istoresav";            // ← change me
+  const STORAGE_KEY    = "csr_form_data_v1";
+  const LOGO_STORAGE   = "csr_logo_dataurl";    // left header logo
+  const LOGO_R_STORAGE = "csr_logo_r_dataurl";  // right header logo
+
+  // Left header logo (brand) — the original replacement logo
+  const LOGO_PATH      = "assets/logo-centre-service-agree.png";
+
+  // Right header logo (Apple "Centre de Services Agréé" mark).
+  // Save the provided image as: assets/logo-apple-agree.png
+  const LOGO_R_PATH    = "assets/logo-apple-agree.png";
+
+  /* ------------------------------------------------------------
+     1. STATE
+     ------------------------------------------------------------ */
+  const state = {
+    jobNumber: "", receivedDate: "", diagnosedDate: "", repairedDate: "",
+    appleRepairNumber: "", repairType: "", customerContactedDate: "",
+    diagnosed: "", summary: "", postRepairDiagnosed: "",
+    serviceNote: "", technicianName: "", techId: "",
+    deliveryDate: "", deliveryTime: "",
+    dealerCompany: "", directCustomer: "", client: "",
+    price: "", currency: "USD",
+    parts: [],
+    imeiOld: "", imeiNew: "", imeiOld2: "", imeiNew2: "",
+    customerName: "", address: "", mobile: "", email: "", website: ""
+  };
+
+  const FIELD_IDS = Object.keys(state).filter(k => k !== "parts");
+
+  // Logo state: { dataUrl, w, h } or null
+  let logoImage = null;      // left header
+  let logoRightImage = null; // right header (Apple centre logo)
+  // Preview blob
+  let currentPdfBlob = null;
+  let currentPdfName = "Service_Report.pdf";
+
+  /* ------------------------------------------------------------
+     2. DOM HELPERS
+     ------------------------------------------------------------ */
+  const $  = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function showView(name) {
+    $$(".view").forEach(v => v.classList.remove("is-active"));
+    const el = document.getElementById("view-" + name);
+    if (el) el.classList.add("is-active");
+    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  }
+
+  /* ------------------------------------------------------------
+     3. LOCAL STORAGE
+     ------------------------------------------------------------ */
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data && typeof data === "object") {
+        Object.keys(state).forEach(k => {
+          if (k === "parts") {
+            if (Array.isArray(data.parts)) state.parts = data.parts;
+          } else if (typeof data[k] === "string") {
+            state[k] = data[k];
+          }
+        });
+      }
+    } catch (e) {}
+  }
+
+  function loadStoredLogo(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+
+  function saveStoredLogo(key, logo) {
+    try {
+      if (logo) localStorage.setItem(key, JSON.stringify(logo));
+      else localStorage.removeItem(key);
+    } catch (e) {}
+  }
+
+  /* ------------------------------------------------------------
+     4. FORM <-> STATE SYNC
+     ------------------------------------------------------------ */
+  function syncFormFromState() {
+    FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = state[id] || "";
+    });
+    renderParts();
+    updateReview();
+  }
+
+  function readFormIntoState() {
+    FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) state[id] = el.value;
+    });
+  }
+
+  /* ------------------------------------------------------------
+     5. PARTS
+     ------------------------------------------------------------ */
+  function blankPart() {
+    return { partNumber: "", description: "", warranty: "", oldSerial: "", newSerial: "" };
+  }
+
+  function renderParts() {
+    const tbody = $("#partsBody");
+    tbody.innerHTML = "";
+    state.parts.forEach((p, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td><input type="text" data-part="' + i + '" data-key="partNumber"  value="' + escapeHtml(p.partNumber)  + '" placeholder="Z661-35400" /></td>' +
+        '<td><input type="text" data-part="' + i + '" data-key="description" value="' + escapeHtml(p.description) + '" placeholder="AirPods Pro 2nd gen USB-C, Right…" /></td>' +
+        '<td><input type="text" data-part="' + i + '" data-key="warranty"    value="' + escapeHtml(p.warranty)    + '" placeholder="Apple Limited Warranty" /></td>' +
+        '<td><input type="text" data-part="' + i + '" data-key="oldSerial"   value="' + escapeHtml(p.oldSerial)   + '" placeholder="HY0040X200-001" /></td>' +
+        '<td><input type="text" data-part="' + i + '" data-key="newSerial"   value="' + escapeHtml(p.newSerial)   + '" placeholder="HY7RT10826K0" /></td>' +
+        '<td><button type="button" class="btn-remove" data-remove="' + i + '" title="Remove">×</button></td>';
+      tbody.appendChild(tr);
+    });
+    $("#partsEmptyHint").style.display = state.parts.length ? "none" : "block";
+  }
+
+  function onPartsInput(e) {
+    const input = e.target.closest("input[data-part]");
+    if (!input) return;
+    const idx = parseInt(input.getAttribute("data-part"), 10);
+    const key = input.getAttribute("data-key");
+    if (!state.parts[idx]) return;
+    state.parts[idx][key] = input.value;
+    saveState();
+  }
+
+  function onPartsClick(e) {
+    const btn = e.target.closest("button[data-remove]");
+    if (!btn) return;
+    const idx = parseInt(btn.getAttribute("data-remove"), 10);
+    state.parts.splice(idx, 1);
+    renderParts();
+    saveState();
+  }
+
+  /* ------------------------------------------------------------
+     6. REVIEW
+     ------------------------------------------------------------ */
+  const REQUIRED = [
+    ["jobNumber",      "Job No."],
+    ["receivedDate",   "Received Date"],
+    ["diagnosedDate",  "Diagnosed Date"],
+    ["client",         "Client"],
+    ["technicianName", "Technician Name"]
+  ];
+
+  function updateReview() {
+    readFormIntoState();
+    const list = $("#reviewList");
+    list.innerHTML = "";
+
+    REQUIRED.forEach(([key, label]) => {
+      const val = state[key];
+      const ok = !!val && String(val).trim() !== "";
+      const li = document.createElement("li");
+      li.className = ok ? "" : "miss";
+      li.innerHTML =
+        '<span class="rk">' + escapeHtml(label) + '</span>' +
+        '<span class="rv">' + escapeHtml(ok ? val : "Required") + '</span>' +
+        '<span class="ok">' + (ok ? "✓" : "!") + '</span>';
+      list.appendChild(li);
+    });
+
+    const info = [
+      ["Parts",    state.parts.length ? String(state.parts.length) : "0"],
+      ["IMEI Old", state.imeiOld || "—"],
+      ["Customer", state.customerName || state.client || "—"],
+      ["Price",    (state.price ? state.price + " " + (state.currency || "") : "—").trim()]
+    ];
+    info.forEach(([k, v]) => {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="rk">' + escapeHtml(k) + '</span><span class="rv">' + escapeHtml(v) + '</span>';
+      list.appendChild(li);
+    });
+  }
+
+  function validateRequired() {
+    readFormIntoState();
+    const missing = [];
+    $$(".field input.is-error, .field select.is-error, .field textarea.is-error")
+      .forEach(el => el.classList.remove("is-error"));
+
+    REQUIRED.forEach(([key, label]) => {
+      const val = state[key];
+      if (!val || String(val).trim() === "") {
+        missing.push(label);
+        const el = document.getElementById(key);
+        if (el) el.classList.add("is-error");
+      }
+    });
+
+    if (missing.length) {
+      const el = document.getElementById(REQUIRED.find(([k]) => !state[k])[0]);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => el.focus({ preventScroll: true }), 400);
+      }
+      return missing;
+    }
+    return null;
+  }
+
+  /* ------------------------------------------------------------
+     7. LOGO LOADING
+     ------------------------------------------------------------ */
+  function loadImageToDataURL(src) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas");
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          c.getContext("2d").drawImage(img, 0, 0);
+          resolve({
+            dataUrl: c.toDataURL("image/png"),
+            w: img.naturalWidth,
+            h: img.naturalHeight
+          });
+        } catch (e) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  async function initLogo() {
+    // LEFT header logo
+    const stored = loadStoredLogo(LOGO_STORAGE);
+    if (stored && stored.dataUrl) {
+      logoImage = stored;
+    } else {
+      const loaded = await loadImageToDataURL(LOGO_PATH);
+      if (loaded) logoImage = loaded;
+    }
+
+    // RIGHT header logo (Apple "Centre de Services Agréé")
+    const storedR = loadStoredLogo(LOGO_R_STORAGE);
+    if (storedR && storedR.dataUrl) {
+      logoRightImage = storedR;
+    } else {
+      const loadedR = await loadImageToDataURL(LOGO_R_PATH);
+      if (loadedR) logoRightImage = loadedR;
+    }
+  }
+
+  /* ------------------------------------------------------------
+     8. PDF GENERATION
+     ------------------------------------------------------------ */
+  function fmtDate(v) {
+    if (!v) return "";
+    return String(v);
+  }
+
+  function drawTextBlock(doc, label, value, x, y, width) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.text(String(label).toUpperCase(), x, y);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.2);
+    doc.setTextColor(25, 25, 25);
+
+    const v = (value == null || value === "") ? "" : String(value);
+    if (!v) return y + 9;
+
+    const lines = doc.splitTextToSize(v, width);
+    let yy = y + 4.6;
+    lines.forEach(line => {
+      doc.text(line, x, yy);
+      yy += 4;
+    });
+    return yy + 1.5;
+  }
+
+  function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
+
+    const PW = 210, PH = 297;
+    const ML = 15, MR = 15;
+    const CW = PW - ML - MR;
+    let y = 12;
+
+    /* -------- HEADER -------- */
+    // LEFT: brand logo
+    let titleX = ML;
+    if (logoImage && logoImage.dataUrl) {
+      const maxH = 14, maxW = 42;
+      const ratio = (logoImage.w || 1) / (logoImage.h || 1);
+      let w = maxW, h = maxH;
+      if (ratio > maxW / maxH) h = maxW / ratio;
+      else                     w = maxH * ratio;
+      try {
+        doc.addImage(logoImage.dataUrl, "PNG", ML, y, w, h, undefined, "FAST");
+        titleX = ML + w + 5;
+      } catch (e) { titleX = ML; }
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13.5);
+    doc.setTextColor(20, 20, 20);
+    doc.text("Centre de Services Agréé", titleX, y + 6.5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(135, 135, 135);
+    doc.text("Service Report", titleX, y + 12);
+
+    // RIGHT: Apple "Centre de Services Agréé" logo
+    // (replaces the previous "Job No. / Received" text block)
+    if (logoRightImage && logoRightImage.dataUrl) {
+      const maxH = 14, maxW = 46;
+      const ratio = (logoRightImage.w || 1) / (logoRightImage.h || 1);
+      let w = maxW, h = maxH;
+      if (ratio > maxW / maxH) h = maxW / ratio;
+      else                     w = maxH * ratio;
+      const x = PW - MR - w;
+      const yy = y;   // top aligned with the left logo
+      try {
+        doc.addImage(logoRightImage.dataUrl, "PNG", x, yy, w, h, undefined, "FAST");
+      } catch (e) { /* ignore */ }
+    }
+
+    y += 18;
+
+    // rule
+    doc.setDrawColor(210, 210, 210);
+    doc.setLineWidth(0.4);
+    doc.line(ML, y, PW - MR, y);
+    y += 6;
+
+    /* -------- JOB INFO (3 cols x 2 rows) -------- */
+    const c3 = CW / 3;
+    const row1Y = y;
+    drawTextBlock(doc, "Job No.",         state.jobNumber,             ML,           row1Y, c3 - 4);
+    drawTextBlock(doc, "Received Date",   fmtDate(state.receivedDate), ML + c3,      row1Y, c3 - 4);
+    drawTextBlock(doc, "Diagnosed Date",  fmtDate(state.diagnosedDate),ML + c3 * 2,  row1Y, c3 - 4);
+    y = row1Y + 12;
+
+    const row2Y = y;
+    drawTextBlock(doc, "Repaired Date",   fmtDate(state.repairedDate), ML,           row2Y, c3 - 4);
+    drawTextBlock(doc, "Apple Repair #",  state.appleRepairNumber,     ML + c3,      row2Y, c3 - 4);
+    drawTextBlock(doc, "Repair Type",     state.repairType,            ML + c3 * 2,  row2Y, c3 - 4);
+    y = row2Y + 12;
+
+    doc.setDrawColor(235, 235, 235);
+    doc.setLineWidth(0.2);
+    doc.line(ML, y, PW - MR, y);
+    y += 5;
+
+    /* -------- DIAGNOSIS -------- */
+    y = drawTextBlock(doc, "Diagnosed",            state.diagnosed,           ML, y, CW);
+    y += 2;
+    y = drawTextBlock(doc, "Summary",              state.summary,             ML, y, CW);
+    y += 2;
+    y = drawTextBlock(doc, "Post Repair Diagnosed",state.postRepairDiagnosed, ML, y, CW);
+    y += 2;
+    y = drawTextBlock(doc, "Service Note",         state.serviceNote,         ML, y, CW);
+    y += 4;
+
+    /* -------- TECH / DATES (2 cols) -------- */
+    const c2 = CW / 2;
+
+    let r = y;
+    drawTextBlock(doc, "Technician",         state.technicianName,               ML,      r, c2 - 4);
+    drawTextBlock(doc, "Tech ID",            state.techId,                       ML + c2, r, c2 - 4);
+    y = r + 12;
+
+    r = y;
+    drawTextBlock(doc, "Customer Contacted", fmtDate(state.customerContactedDate), ML,      r, c2 - 4);
+    const deliveryTxt = [fmtDate(state.deliveryDate), state.deliveryTime].filter(Boolean).join("  ");
+    drawTextBlock(doc, "Delivery",           deliveryTxt,                        ML + c2, r, c2 - 4);
+    y = r + 12;
+
+    r = y;
+    drawTextBlock(doc, "Dealer / Company",   state.dealerCompany,  ML,      r, c2 - 4);
+    drawTextBlock(doc, "Direct Customer",    state.directCustomer, ML + c2, r, c2 - 4);
+    y = r + 12;
+
+    r = y;
+    drawTextBlock(doc, "Client",             state.client,         ML,      r, c2 - 4);
+    const priceTxt = state.price ? (state.price + " " + (state.currency || "")).trim() : "";
+    drawTextBlock(doc, "Price",              priceTxt,             ML + c2, r, c2 - 4);
+    y = r + 14;
+
+    /* -------- PARTS TABLE -------- */
+    if (y > PH - 90) { doc.addPage(); y = 15; }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text("PARTS & SERIAL NUMBERS", ML, y);
+    y += 4;
+
+    const colSpecs = [
+      { key: "partNumber",  label: "PART #",      w: 0.16 },
+      { key: "description", label: "DESCRIPTION", w: 0.34 },
+      { key: "warranty",    label: "WARRANTY",    w: 0.18 },
+      { key: "oldSerial",   label: "OLD SERIAL",  w: 0.16 },
+      { key: "newSerial",   label: "NEW SERIAL",  w: 0.16 }
+    ];
+    const cols = colSpecs.map(c => ({ ...c, w: c.w * CW }));
+
+    const rowH = 6.5;
+
+    doc.setFillColor(245, 245, 247);
+    doc.setDrawColor(215, 215, 215);
+    doc.setLineWidth(0.2);
+    doc.rect(ML, y, CW, rowH, "FD");
+
+    let xPos = ML;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.8);
+    doc.setTextColor(70, 70, 70);
+    cols.forEach((c, i) => {
+      doc.text(c.label, xPos + 1.5, y + 4.2);
+      xPos += c.w;
+      if (i < cols.length - 1) doc.line(xPos, y, xPos, y + rowH);
+    });
+    y += rowH;
+
+    const parts = state.parts.length ? state.parts : [blankPart()];
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.6);
+    doc.setTextColor(30, 30, 30);
+
+    parts.forEach((p) => {
+      const cellLines = cols.map(c => {
+        const val = (p[c.key] || "").toString();
+        return val ? doc.splitTextToSize(val, c.w - 3) : [""];
+      });
+      const maxLines = Math.max(1, ...cellLines.map(l => l.length));
+      const thisH = Math.max(rowH, maxLines * 3.6 + 2.6);
+
+      if (y + thisH > PH - 25) {
+        doc.addPage();
+        y = 15;
+        doc.setFillColor(245, 245, 247);
+        doc.setDrawColor(215, 215, 215);
+        doc.rect(ML, y, CW, rowH, "FD");
+        let xx = ML;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.8);
+        doc.setTextColor(70, 70, 70);
+        cols.forEach((c, i) => {
+          doc.text(c.label, xx + 1.5, y + 4.2);
+          xx += c.w;
+          if (i < cols.length - 1) doc.line(xx, y, xx, y + rowH);
+        });
+        y += rowH;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.6);
+        doc.setTextColor(30, 30, 30);
+      }
+
+      doc.setDrawColor(220, 220, 220);
+      doc.rect(ML, y, CW, thisH, "S");
+
+      let x = ML;
+      cellLines.forEach((lines, i) => {
+        lines.forEach((line, li) => {
+          doc.text(line, x + 1.5, y + 4.1 + li * 3.6);
+        });
+        x += cols[i].w;
+        if (i < cols.length - 1) doc.line(x, y, x, y + thisH);
+      });
+
+      y += thisH;
+    });
+
+    y += 6;
+
+    /* -------- IMEI -------- */
+    if (y > PH - 50) { doc.addPage(); y = 15; }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text("IMEI", ML, y);
+    y += 4;
+
+    let iy = y;
+    drawTextBlock(doc, "IMEI Old",  state.imeiOld,  ML,      iy, c2 - 4);
+    drawTextBlock(doc, "IMEI New",  state.imeiNew,  ML + c2, iy, c2 - 4);
+    y = iy + 12;
+
+    iy = y;
+    drawTextBlock(doc, "IMEI Old 2", state.imeiOld2, ML,      iy, c2 - 4);
+    drawTextBlock(doc, "IMEI New 2", state.imeiNew2, ML + c2, iy, c2 - 4);
+    y = iy + 12;
+
+    /* -------- LEGAL -------- */
+    if (y > PH - 45) { doc.addPage(); y = 15; }
+
+    doc.setDrawColor(235, 235, 235);
+    doc.setLineWidth(0.2);
+    doc.line(ML, y - 2, PW - MR, y - 2);
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(6.9);
+    doc.setTextColor(110, 110, 110);
+    const legal = [
+      "* The warranty for the repair will be as per Apple's Repair terms and conditions.",
+      "* Apple may use the personal details (e.g., name, contact numbers, etc.) provided by the customer for review.",
+      "* Change was made due to malfunction."
+    ];
+    legal.forEach(line => {
+      if (y > PH - 30) { doc.addPage(); y = 15; }
+      doc.text(line, ML, y);
+      y += 3.6;
+    });
+    y += 4;
+
+    /* -------- SIGNATURE -------- */
+    if (y > PH - 28) { doc.addPage(); y = 15; }
+
+    doc.setDrawColor(130, 130, 130);
+    doc.setLineWidth(0.3);
+    doc.line(ML, y + 8, ML + 62, y + 8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text(state.technicianName || "Technician signature", ML, y + 12);
+    y += 18;
+
+    /* -------- FOOTER / CUSTOMER -------- */
+    if (y > PH - 40) { doc.addPage(); y = 15; }
+
+    doc.setDrawColor(225, 225, 225);
+    doc.setLineWidth(0.3);
+    doc.line(ML, y, PW - MR, y);
+    y += 5;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(30, 30, 30);
+    const custName = state.customerName || state.client || "";
+    if (custName) doc.text(custName, ML, y + 3);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.4);
+    doc.setTextColor(95, 95, 95);
+
+    const contactLines = [];
+    if (state.address) contactLines.push(state.address);
+    if (state.mobile)  contactLines.push("Mobile: " + state.mobile);
+    if (state.email)   contactLines.push("Email: " + state.email);
+    if (state.website) contactLines.push("Website: " + state.website);
+
+    let cy = y + 7.5;
+    contactLines.forEach(line => {
+      doc.text(line, ML, cy);
+      cy += 3.6;
+    });
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    const stamp =
+      now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) +
+      "  " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.text(stamp, PW - MR, PH - 8, { align: "right" });
+
+    return doc;
+  }
+
+  /* ------------------------------------------------------------
+     9. PREVIEW / DOWNLOAD
+     ------------------------------------------------------------ */
+  function buildFileName() {
+    const job = (state.jobNumber || "").trim();
+    return job
+      ? "Service_Report_" + job.replace(/[^\w\-]+/g, "_") + ".pdf"
+      : "Service_Report.pdf";
+  }
+
+  function generateAndPreview() {
+    const missing = validateRequired();
+    if (missing) {
+      alert("Please complete all required fields before generating the PDF.\n\nMissing:\n• " + missing.join("\n• "));
+      return;
+    }
+    readFormIntoState();
+
+    const doc = generatePDF();
+    const blob = doc.output("blob");
+    currentPdfBlob = blob;
+    currentPdfName = buildFileName();
+
+    $("#previewFileName").textContent = currentPdfName;
+
+    const url = URL.createObjectURL(blob);
+    const frame = $("#pdfFrame");
+    if (frame.dataset.url) {
+      try { URL.revokeObjectURL(frame.dataset.url); } catch (e) {}
+    }
+    frame.dataset.url = url;
+    frame.src = url;
+
+    showView("preview");
+    saveState();
+  }
+
+  function downloadPDF() {
+    if (!currentPdfBlob) { generateAndPreview(); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(currentPdfBlob);
+    a.download = currentPdfName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 200);
+  }
+
+  /* ------------------------------------------------------------
+     10. CLEAR FORM
+     ------------------------------------------------------------ */
+  function clearForm(silent) {
+    if (!silent) {
+      const ok = window.confirm("Are you sure you want to clear this service report?\nAll entered data will be permanently deleted.");
+      if (!ok) return;
+    }
+    Object.keys(state).forEach(k => {
+      if (k === "parts") state.parts = [];
+      else if (k === "currency") state.currency = "USD";
+      else state[k] = "";
+    });
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    syncFormFromState();
+    updateReview();
+  }
+
+  /* ------------------------------------------------------------
+     11. EVENT WIRING
+     ------------------------------------------------------------ */
+  function wireLogin() {
+    const form = $("#loginForm");
+    const errEl = $("#loginError");
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const email = $("#loginEmail").value.trim();
+      const pass  = $("#loginPassword").value;
+      if (email === VALID_EMAIL && pass === VALID_PASSWORD) {
+        errEl.textContent = "";
+        errEl.classList.remove("show");
+        showView("form");
+        loadState();
+        syncFormFromState();
+      } else {
+        errEl.textContent = "Email or password incorrect. Please try again.";
+        errEl.classList.add("show");
+        const card = $(".login-card");
+        card.animate(
+          [{ transform: "translateX(0)" }, { transform: "translateX(-6px)" },
+           { transform: "translateX(6px)" }, { transform: "translateX(0)" }],
+          { duration: 260, easing: "ease-in-out" }
+        );
+      }
+    });
+  }
+
+  function wireForm() {
+    FIELD_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener("input",  () => { state[id] = el.value; saveState(); updateReview(); });
+      el.addEventListener("change", () => { state[id] = el.value; saveState(); updateReview(); });
+      el.addEventListener("input", () => el.classList.remove("is-error"));
+    });
+
+    $("#partsBody").addEventListener("input", onPartsInput);
+    $("#partsBody").addEventListener("click", onPartsClick);
+
+    $("#btnAddPart").addEventListener("click", () => {
+      state.parts.push(blankPart());
+      renderParts();
+      saveState();
+      const rows = $$("#partsBody tr");
+      const last = rows[rows.length - 1];
+      if (last) {
+        const inp = last.querySelector("input");
+        if (inp) inp.focus();
+      }
+    });
+
+    $("#btnLoadExample").addEventListener("click", () => {
+      if (state.parts.length === 0 || confirm("Replace current parts with example data?")) {
+        state.parts = [
+          {
+            partNumber: "Z661-35400",
+            description: "AirPods Pro 2nd gen USB-C, Right, CI/AR, INT",
+            warranty: "Apple Limited Warranty",
+            oldSerial: "HY0040X200-001",
+            newSerial: "HY7RT10826K0"
+          },
+          {
+            partNumber: "Z661-35399",
+            description: "AirPods Pro 2nd gen USB-C, Left, CI/AR, INT",
+            warranty: "Apple Limited Warranty",
+            oldSerial: "HY0040X200-002",
+            newSerial: "HY7RG37726JY"
+          }
+        ];
+        renderParts();
+        saveState();
+      }
+    });
+
+    $("#btnPreviewTop").addEventListener("click", generateAndPreview);
+    $("#btnPreviewBottom").addEventListener("click", generateAndPreview);
+
+    $("#btnClearTop").addEventListener("click", () => clearForm(false));
+    $("#btnClearBottom").addEventListener("click", () => clearForm(false));
+    $("#btnClearPreview").addEventListener("click", () => {
+      clearForm(false);
+      showView("form");
+    });
+
+    $("#btnLogout").addEventListener("click", () => {
+      saveState();
+      showView("login");
+      $("#loginPassword").value = "";
+      $("#loginError").textContent = "";
+      $("#loginError").classList.remove("show");
+    });
+
+    // LEFT header logo upload
+    $("#logoInput").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const loaded = await loadImageToDataURL(reader.result);
+        if (loaded) {
+          logoImage = loaded;
+          saveStoredLogo(LOGO_STORAGE, loaded);
+          alert("Left header logo updated.");
+        } else {
+          alert("Could not read that image.");
+        }
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+    });
+
+    // RIGHT header logo upload (Apple "Centre de Services Agréé")
+    $("#logoRightInput").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const loaded = await loadImageToDataURL(reader.result);
+        if (loaded) {
+          logoRightImage = loaded;
+          saveStoredLogo(LOGO_R_STORAGE, loaded);
+          alert("Right header logo updated.");
+        } else {
+          alert("Could not read that image.");
+        }
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+    });
+  }
+
+  function wirePreview() {
+    $("#btnBack").addEventListener("click", () => showView("form"));
+    $("#btnRegenerate").addEventListener("click", () => {
+      readFormIntoState();
+      generateAndPreview();
+    });
+    $("#btnDownload").addEventListener("click", downloadPDF);
+  }
+
+  /* ------------------------------------------------------------
+     12. INIT
+     ------------------------------------------------------------ */
+  async function init() {
+    $("#year").textContent = new Date().getFullYear();
+
+    loadState();
+    wireLogin();
+    wireForm();
+    wirePreview();
+
+    syncFormFromState();
+    updateReview();
+
+    await initLogo();
+
+    showView("login");
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
